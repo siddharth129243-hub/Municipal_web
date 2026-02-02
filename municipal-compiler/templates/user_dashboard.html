@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}User Dashboard - Municipal Compiler{% endblock %}
+
+{% block content %}
+<div class="dashboard-header fade-in">
+    <h1><i class="fas fa-tachometer-alt"></i> Citizen Dashboard</h1>
+    <p>Welcome, {{ current_user.username }}! Manage your complaints here.</p>
+</div>
+
+<!-- Statistics -->
+<div class="dashboard-grid">
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-icon">
+                <i class="fas fa-file-alt"></i>
+            </div>
+            <div>
+                <h3>Total Complaints</h3>
+                <p class="card-label">All time</p>
+            </div>
+        </div>
+        <div class="card-value" id="totalComplaints">0</div>
+    </div>
+    
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--warning-color);">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div>
+                <h3>Pending</h3>
+                <p class="card-label">Awaiting action</p>
+            </div>
+        </div>
+        <div class="card-value" id="pendingComplaints">0</div>
+    </div>
+    
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--success-color);">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div>
+                <h3>Resolved</h3>
+                <p class="card-label">Completed issues</p>
+            </div>
+        </div>
+        <div class="card-value" id="resolvedComplaints">0</div>
+    </div>
+    
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--secondary-color);">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div>
+                <h3>Resolution Rate</h3>
+                <p class="card-label">Success percentage</p>
+            </div>
+        </div>
+        <div class="card-value" id="resolutionRate">0%</div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div style="margin: 2rem 0;">
+    <a href="{{ url_for('new_complaint') }}" class="btn btn-primary" style="font-size: 1.1rem;">
+        <i class="fas fa-plus-circle"></i> File New Complaint
+    </a>
+    <button id="trackComplaint" class="btn btn-secondary" style="margin-left: 10px;">
+        <i class="fas fa-search"></i> Track Complaint
+    </button>
+</div>
+
+<!-- Recent Complaints -->
+<div class="complaints-list">
+    <h2><i class="fas fa-history"></i> Recent Complaints</h2>
+    
+    {% if complaints %}
+        {% for complaint in complaints %}
+        <div class="complaint-item fade-in">
+            <div class="complaint-header">
+                <div>
+                    <h3>{{ complaint.title }}</h3>
+                    <p><i class="fas fa-map-marker-alt"></i> {{ complaint.address or 'Location not specified' }}</p>
+                    <p><i class="fas fa-calendar"></i> {{ complaint.created_at.strftime('%d %b %Y, %I:%M %p') }}</p>
+                </div>
+                <div class="complaint-status status-{{ complaint.status.replace('_', '-') }}">
+                    {{ complaint.status|replace('_', ' ')|title }}
+                </div>
+            </div>
+            
+            <p>{{ complaint.description }}</p>
+            
+            {% if complaint.image_path %}
+            <div style="margin: 1rem 0;">
+                {% if complaint.resolved_image_path %}
+    {% set resolved_filename = complaint.resolved_image_path.replace('\\', '/').split('/')[-1] %}
+    <img src="{{ url_for('uploaded_file', filename=resolved_filename) }}" 
+         alt="Resolution Image" style="max-width: 300px; border-radius: 5px;">
+{% endif %}
+            </div>
+            {% endif %}
+            
+            {% if complaint.status == 'resolved' and complaint.resolution_details %}
+            <div style="background: #d4edda; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
+                <h4><i class="fas fa-check-circle"></i> Resolution Details</h4>
+                <p>{{ complaint.resolution_details }}</p>
+                <p><small>Resolved on: {{ complaint.resolved_at.strftime('%d %b %Y') }}</small></p>
+                
+                {% if complaint.resolved_image_path %}
+                <div style="margin-top: 1rem;">
+                   {% if complaint.resolved_image_path %}
+    {% set resolved_filename = complaint.resolved_image_path.replace('\\', '/').split('/')[-1] %}
+    <img src="{{ url_for('uploaded_file', filename=resolved_filename) }}" 
+         alt="Resolution Image" style="max-width: 300px; border-radius: 5px;">
+{% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <div style="margin-top: 1rem; display: flex; gap: 10px;">
+                <span class="btn" style="background: #e9ecef;">
+                    <i class="fas fa-tag"></i> {{ complaint.category }}
+                </span>
+                <span class="btn" style="background: #e9ecef;">
+                    <i class="fas fa-flag"></i> {{ complaint.priority|title }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="dashboard-card" style="text-align: center; padding: 3rem;">
+            <i class="fas fa-inbox fa-3x" style="color: #6c757d; margin-bottom: 1rem;"></i>
+            <h3>No Complaints Yet</h3>
+            <p>You haven't filed any complaints yet. Start by filing your first complaint!</p>
+            <a href="{{ url_for('new_complaint') }}" class="btn btn-primary" style="margin-top: 1rem;">
+                <i class="fas fa-plus-circle"></i> File First Complaint
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Load statistics
+    fetch('/api/complaints/stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('totalComplaints').textContent = data.total;
+            document.getElementById('pendingComplaints').textContent = data.pending;
+            document.getElementById('resolvedComplaints').textContent = data.resolved;
+            document.getElementById('resolutionRate').textContent = data.resolution_rate.toFixed(1) + '%';
+        });
+    
+    // Track complaint button
+    document.getElementById('trackComplaint').addEventListener('click', function() {
+        const complaintId = prompt('Enter Complaint ID:');
+        if (complaintId) {
+            // In a real app, this would show tracking details
+            alert(`Tracking complaint #${complaintId}. This feature would show detailed status updates in a real implementation.`);
+        }
+    });
+});
+</script>
+{% endblock %}

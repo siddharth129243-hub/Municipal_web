@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}Officer Dashboard - Municipal Compiler{% endblock %}
+
+{% block content %}
+<div class="dashboard-header fade-in">
+    <h1><i class="fas fa-user-tie"></i> Officer Dashboard</h1>
+    <p>Welcome, Officer {{ current_user.username }}! Manage complaints in {{ current_user.taluka or 'your area' }}.</p>
+</div>
+
+<div class="dashboard-grid">
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-icon">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div>
+                <h3>Assigned to Me</h3>
+                <p class="card-label">Your active cases</p>
+            </div>
+        </div>
+        <div class="card-value">{{ assigned_complaints|length }}</div>
+    </div>
+    
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-icon" style="background: var(--warning-color);">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div>
+                <h3>Pending in Taluka</h3>
+                <p class="card-label">{{ current_user.taluka or 'All areas' }}</p>
+            </div>
+        </div>
+        <div class="card-value">{{ taluka_complaints|length }}</div>
+    </div>
+</div>
+
+<!-- Assigned Complaints -->
+<div class="complaints-list fade-in">
+    <h2><i class="fas fa-clipboard-list"></i> Complaints Assigned to You</h2>
+    
+    {% if assigned_complaints %}
+        {% for complaint in assigned_complaints %}
+        <div class="complaint-item">
+            <div class="complaint-header">
+                <div>
+                    <h3>{{ complaint.title }}</h3>
+                    <p><i class="fas fa-user"></i> {{ complaint.author.username }} | 
+                       <i class="fas fa-map-marker-alt"></i> {{ complaint.address or 'Location not specified' }}</p>
+                    <p><i class="fas fa-calendar"></i> {{ complaint.created_at.strftime('%d %b %Y, %I:%M %p') }}</p>
+                </div>
+                <div class="complaint-status status-{{ complaint.status.replace('_', '-') }}">
+                    {{ complaint.status|replace('_', ' ')|title }}
+                </div>
+            </div>
+            
+            <p>{{ complaint.description }}</p>
+            
+            {% if complaint.image_path %}
+            <div style="margin: 1rem 0;">
+               {% if complaint.resolved_image_path %}
+    {% set resolved_filename = complaint.resolved_image_path.replace('\\', '/').split('/')[-1] %}
+    <img src="{{ url_for('uploaded_file', filename=resolved_filename) }}" 
+         alt="Resolution Image" style="max-width: 300px; border-radius: 5px;">
+{% endif %}
+            </div>
+            {% endif %}
+            
+            {% if complaint.status != 'resolved' %}
+            <div style="margin-top: 1rem;">
+                <form method="POST" action="{{ url_for('resolve_complaint', complaint_id=complaint.id) }}" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="resolution_details_{{ complaint.id }}"><i class="fas fa-check-circle"></i> Resolution Details</label>
+                        <textarea id="resolution_details_{{ complaint.id }}" name="resolution_details" 
+                                  class="form-control" rows="3" placeholder="Describe how you resolved the issue..." required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="resolved_image_{{ complaint.id }}"><i class="fas fa-camera"></i> Upload Resolution Photo (Optional)</label>
+                        <input type="file" id="resolved_image_{{ complaint.id }}" name="resolved_image" accept="image/*" class="form-control">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Mark as Resolved
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <div style="background: #d4edda; padding: 1rem; border-radius: 10px; margin-top: 1rem;">
+                <h4><i class="fas fa-check-circle"></i> Already Resolved</h4>
+                <p>{{ complaint.resolution_details }}</p>
+                <p><small>Resolved on: {{ complaint.resolved_at.strftime('%d %b %Y') if complaint.resolved_at else 'N/A' }}</small></p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="dashboard-card" style="text-align: center; padding: 3rem;">
+            <i class="fas fa-inbox fa-3x" style="color: #6c757d; margin-bottom: 1rem;"></i>
+            <h3>No Assigned Complaints</h3>
+            <p>You don't have any complaints assigned to you yet.</p>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Taluka Complaints -->
+{% if taluka_complaints %}
+<div class="complaints-list fade-in">
+    <h2><i class="fas fa-map-marker-alt"></i> Pending Complaints in {{ current_user.taluka }}</h2>
+    
+    {% for complaint in taluka_complaints %}
+    <div class="complaint-item">
+        <div class="complaint-header">
+            <div>
+                <h3>{{ complaint.title }}</h3>
+                <p><i class="fas fa-user"></i> {{ complaint.author.username }}</p>
+                <p><i class="fas fa-calendar"></i> {{ complaint.created_at.strftime('%d %b %Y, %I:%M %p') }}</p>
+            </div>
+            <div class="complaint-status status-pending">
+                Pending
+            </div>
+        </div>
+        
+        <p>{{ complaint.description[:200] }}...</p>
+        
+        {% if complaint.image_path %}
+        <div style="margin: 1rem 0;">
+           {% if complaint.resolved_image_path %}
+    {% set resolved_filename = complaint.resolved_image_path.replace('\\', '/').split('/')[-1] %}
+    <img src="{{ url_for('uploaded_file', filename=resolved_filename) }}" 
+         alt="Resolution Image" style="max-width: 300px; border-radius: 5px;">
+{% endif %}
+        </div>
+        {% endif %}
+        
+        <div style="margin-top: 1rem;">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">
+                <i class="fas fa-user-tie"></i> Request Assignment
+            </a>
+            <small style="display: block; margin-top: 5px; color: #6c757d;">
+                Contact admin to get this complaint assigned to you
+            </small>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
